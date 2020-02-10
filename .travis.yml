@@ -1,7 +1,7 @@
 language: python
 
 python:
-    - 3.6
+    - 3.7
 branches:
   only:
     - develop
@@ -15,7 +15,19 @@ before_install:
 install:
     - poetry install
 
-script: pytest
+script:
+    - poetry run python -m nose . --with-xunit --with-coverage --cover-erase --cover-package=pandas_aws
+    - poetry export -f requirements.txt > requirements.txt
 
 after_success:
-    - codecov
+    - bash <(curl -s https://codecov.io/bash)
+
+deploy:
+  - provider: script
+    script: bash deploy.sh develop
+    on:
+      branch: develop
+  - provider: script
+    script: bash deploy.sh master
+    on:
+      branch: master

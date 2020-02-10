@@ -1,15 +1,37 @@
 [tool.poetry]
-name = "aws-pocket"
+name = "pandas-aws"
 version = "0.1.0"
 description = ""
-authors = ["FlorentPajot <florent.pajot10@gmail.com>"]
+authors = ["FlorentPajot <pro.florent.pajot@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/FlorentPajot/pandas-aws"
+repository = "https://github.com/FlorentPajot/pandas-aws"
+keywords = ["pandas", "aws", "python", "dataengineering"]
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+    ]
+include = [
+    "LICENSE",
+]
 
 [tool.poetry.dependencies]
-python = "^3.6"
-moto = "^1.3.14"
+python = "^3.7"
+boto3 = "^1.12.26"
+pandas = "^1.0.3"
+fastparquet = "^0.3.3"
+pyarrow = "^0.16.0"
+xlsxwriter = "^1.2.8"
+xlrd = "^1.2.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "^5.2"
+moto = "^1.3.14"
+nose = "^1.3.7"
+coverage = "^5.2.1"
 
 [build-system]
 requires = ["poetry>=0.12"]

@@ -1,26 +1,32 @@
-__version__ = '0.1.0'
 __author__ = 'fpajot'
 
-import os
+from unittest import TestCase
+
+import mock
+
+from pandas_aws import get_client
 
 
-from moto import mock_s3
-import pytest
+class GetAWSClientTests(TestCase):
+    """Test related AWS client module functions."""
 
-@pytest.fixture(scope='session')
-def aws_credentials():
-    """Mocked AWS Credentials for moto."""
-    os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
-    os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
-    os.environ['AWS_SECURITY_TOKEN'] = 'testing'
-    os.environ['AWS_SESSION_TOKEN'] = 'testing'
-    os.environ['AWS_DEFAULT_REGION'] = 'eu-west-1'
-    os.environ['AWS_PROFILE'] = 'default'
+    @mock.patch('pandas_aws.boto3')
+    def test_get_aws_client_success(self, mock_boto):
+        """Test AWS client"""
 
+        _ = get_client('s3')
+        mock_boto.Session.assert_called_with(profile_name='default')
 
-@pytest.fixture(scope='session')
-def s3(aws_credentials):
-    from aws_pocket import get_client
+    @mock.patch('pandas_aws.boto3')
+    def test_get_aws_client_custom_profile(self, mock_boto):
+        """Test AWS client with wrong profile"""
 
-    with mock_s3():
-        yield get_client('s3')
+        _ = get_client(service_name='s3', profile_name='custom_profile')
+        mock_boto.Session.assert_called_with(profile_name='custom_profile')
+
+    @mock.patch('pandas_aws.boto3')
+    def test_get_aws_client_specific_service(self, mock_boto):
+        """Test AWS client"""
+
+        client = get_client('sns')
+        self.assertIs(client, mock_boto.Session().client(service_name='sns'))
