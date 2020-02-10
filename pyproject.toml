@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "aws-pocket"
+version = "0.1.0"
+description = ""
+authors = ["FlorentPajot <florent.pajot10@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.6"
+moto = "^1.3.14"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
