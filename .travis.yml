@@ -1,0 +1,21 @@
+language: python
+
+python:
+    - 3.6
+branches:
+  only:
+    - develop
+    - master
+
+before_install:
+    - python --version
+    - curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+    - source $HOME/.poetry/env
+
+install:
+    - poetry install
+
+script: pytest
+
+after_success:
+    - codecov
