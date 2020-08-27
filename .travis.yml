@@ -1,33 +1,45 @@
 language: python
 
 python:
-    - 3.7
+- 3.7
+
 branches:
   only:
-    - develop
-    - master
+  - develop
+  - master
 
 before_install:
-    - python --version
-    - curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
-    - source $HOME/.poetry/env
+- python --version
+- curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py
+  | python
+- source $HOME/.poetry/env
 
 install:
-    - poetry install
+- poetry install
 
 script:
-    - poetry run python -m nose . --with-xunit --with-coverage --cover-erase --cover-package=pandas_aws
-    - poetry export -f requirements.txt > requirements.txt
+- poetry run python -m nose . --with-xunit --with-coverage --cover-erase --cover-package=pandas_aws
 
 after_success:
-    - bash <(curl -s https://codecov.io/bash)
+- bash <(curl -s https://codecov.io/bash)
+
+before_deploy:
+- poetry config repositories.testpypi https://test.pypi.org/legacy/
+- poetry config pypi-token.pypi $POETRY_PYPI_TOKEN_PYPI
+- poetry config pypi-token.testpypi $POETRY_PYPI_TOKEN_TESTPYPI
+- poetry build
 
 deploy:
-  - provider: script
-    script: bash deploy.sh develop
-    on:
-      branch: develop
-  - provider: script
-    script: bash deploy.sh master
-    on:
-      branch: master
+- provider: script
+  script: poetry publish -r testpypi
+  on:
+    branch: develop
+- provider: script
+  script: poetry publish
+  on:
+    branch: master
+
+env:
+  global:
+  - secure: 06ljzxPwr9yP6/3bVxujVV0avxSXFEP7jjoq/l7RJqhLv+VhJidkz1X62P5zFBj6WCg5DZFjbY+9+0FN7T4RdlB12p0fjcIQma9Z/c1fWg90nPO11nR1YG7Q87eh7BgTQMGhigpBrLzgwjmUu+jArKThu9EwsYNgKzwT4E84MVsXl4IlOpwMWcyjX7iGnRwcQ7nHs25h9FovY/K1Spt5IztSxzCQ5eWDW7Dnb3FQPMDZL2VH8A0DLUsr65DLw+kL1pEtIN7bAJmYSQx5qF1n86844jS7vsLeC5No3I+GSrqfLGdrTcLH6+duSXrjeWW0h3iFQPH0eO+xtawBB8wckh5fZKCsfp9YGTMiOvn8KoCBngkdmlaZG+ffZC+nUj8/8bz584MDL2w94AOPYRsqYl+cDgJ6DMLRef3YaLd247vgk0bCxpIAQPD4brijrefuiJXwgw7CRdYN56T2dH2VsUhaM9m2j1Pyeb4LnCPksShhYwHS6DaHwSLJahXKnuQTcVKOeFswdCzHxFPqhjzxZpI34rdvxXjFEpf3LRUocD5CXDYYNGdWZnSAFfIntS6qUT7OHsUfhCmUa1QeGDQTkxgQ8sWpoctxRS6E7gGRC5fPAKPw7R4gvo30MDLZcOpFiVU9SjyaWiXMWFXhTNjubPBTPmkIZKIixBetUlKMcxo=
+  - secure: bda5LmuhiLI4LXyiLYgZEfBk08uRVNnO8uIjJfKhO/BG8QhuvrWY4DjLJXTI6ERx51VgUwLFgjt0H06Y4sWB9wZP/07vuiIVZz04c6uPEIaIMKsxKepBTd+mrdvqwhkvcyk4ZXbeBMJeZOvQwTI7qcfo9xgxkgybGbmL0/6lStlAkCAfCpk0dJmNM5W2CJ6rGL3opfyvk942/mQSR4Bm/Ge2283h3/b9fOJPm5J/WwZigJTf9uGVa5Fy6kZT8EnxtfTs0kNucN1gKO7GjayizYq/ssGAL+uAAXrBXs0cJgaMv5HBiqMgpiPh7k2sRwb4Zylcy3x3CKChYCnDaorbMtd20o3cvgY6IuSZiw1byqUR73fJ5y+ZKFqK36X5inDXFQVqq+0BQrEdxNFmm1RXuagRRLfoOif3ktjTJKo5kDkXW68oKmv8D7RShjswE78MCyDgU63vzbQfXZzu2RMG/Y5GPZMVngOJRqhWvh81RfPoOI2ndRq0yGhlXob0X5ECQ4BiQPy5Uxbqu8hk5pfCHEUrZWg+k8qMjeRjAY4aCdhW+K/0T7X1gaBCdP7NBCkvezRuawywXzXt6RDXfWY1mtyW2g/w9AQ3OCh/uVaxKBGGOPvGAjwu2ebz9Q7KeUB5AtX7krw28Z0/57XV9IqIHEHU2LmSNPeoJ3Nh2t0Xh/8=
