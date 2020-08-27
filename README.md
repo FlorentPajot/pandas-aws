@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/FlorentPajot/aws-pocket.svg?branch=master)](https://travis-ci.org/FlorentPajot/aws-pocket) [![codecov](https://codecov.io/gh/FlorentPajot/pandas-aws/branch/master/graph/badge.svg)](https://codecov.io/gh/FlorentPajot/pandas-aws)
+[![Build Status](https://travis-ci.com/FlorentPajot/pandas-aws.svg?branch=master)](https://travis-ci.com/FlorentPajot/pandas-aws) [![codecov](https://codecov.io/gh/FlorentPajot/pandas-aws/branch/master/graph/badge.svg)](https://codecov.io/gh/FlorentPajot/pandas-aws)
 
 # Pandas AWS - AWS use made easy for data scientists
 
