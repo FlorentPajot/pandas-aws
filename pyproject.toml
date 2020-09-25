@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pandas-aws"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["FlorentPajot <pro.florent.pajot@gmail.com>"]
 license = "MIT"
