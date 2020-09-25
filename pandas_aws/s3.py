@@ -174,3 +174,8 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
                 logger.error(f'File key {f} uses a forbidden extension {f.split(".")[-1]}')
                 raise ValueError(f'File {f} cannot be interpreted as a pandas.DataFrame') from err
     return pandas.concat(l_df, axis=0, ignore_index=True).reset_index(drop=True)
+
+
+def get_df_multipart():
+    # TODO
+    pass
