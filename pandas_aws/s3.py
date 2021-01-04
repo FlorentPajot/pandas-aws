@@ -2,7 +2,7 @@
 __author__ = 'fpajot'
 
 import gzip
-import io
+from io import StringIO, BytesIO
 import logging
 import pickle
 
@@ -13,7 +13,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_keys(s3: boto3.resources.base.ServiceResource, bucket: str, prefix: str = '', suffix: str = '', **kwargs):
+def get_keys(s3: boto3.resources.base.ServiceResource,
+             bucket: str, prefix: str = '',
+             suffix: str = '',
+             **kwargs):
     """
     Generate the keys in an S3 bucket.
     :param s3: S3 client
@@ -40,7 +43,7 @@ def get_keys(s3: boto3.resources.base.ServiceResource, bucket: str, prefix: str 
                 if key.endswith(suffix):
                     yield key
         else:
-            logger.warning('Nothing found for the given prefix and/or suffix')
+            logger.info('Nothing found for the given prefix and/or suffix')
 
         # The S3 API is paginated, default MaxKeys is 123
         done = not resp['IsTruncated']
@@ -66,20 +69,23 @@ def put_df(s3: boto3.resources.base.ServiceResource,
     :param compression: file compression applied
     :param '**kwargs': used for passing arguments to pandas writing methods
     """
-    # Uploads the given file using a managed uploader, which will split up large
-    # files automatically and upload parts in parallel
+    # Uploads the given file using a managed uploader,
+    # which will split up large files automatically
+    # and upload parts in parallel
 
-    assert format in ['csv', 'parquet', 'pickle', 'xlsx'], 'provider format value not accepted'
+    assert format in ['csv', 'parquet', 'pickle', 'xlsx'], \
+        'provider format value not accepted'
     if format == 'csv':
-        assert compression in [None, 'gzip'], 'provider compression value not accepted'
+        assert compression in [None, 'gzip'], \
+            'provider compression value not accepted'
 
     if isinstance(df, pandas.DataFrame):
         if format == 'csv':
-            buffer = io.StringIO()
+            buffer = StringIO()
             df.to_csv(buffer, index_label=False, index=False, **kwargs)
             if compression == 'gzip':
                 logger.info('Using csv compression with gzip')
-                gz_buffer = io.BytesIO()
+                gz_buffer = BytesIO()
                 buffer.seek(0)
                 # compress string stream using gzip
                 with gzip.GzipFile(mode='w', fileobj=gz_buffer) as gz_file:
@@ -91,12 +97,13 @@ def put_df(s3: boto3.resources.base.ServiceResource,
                     ContentEncoding='gzip',  # MUST have or browsers will error
                     Body=gz_buffer.getvalue()
                 )
-                logger.info(f'File uploaded using format {format}, compression {compression}')
+                logger.info(f'File uploaded using format {format}, \
+                            compression {compression}')
                 return
             else:
                 body = buffer.getvalue()
         elif format == 'xlsx':
-            buffer = io.BytesIO()
+            buffer = BytesIO()
             writer = pandas.ExcelWriter(buffer, engine='xlsxwriter')
             df.to_excel(writer, sheet_name='Sheet1', index=False, **kwargs)
             writer.save()
@@ -106,7 +113,7 @@ def put_df(s3: boto3.resources.base.ServiceResource,
                 engine = kwargs['engine']
             else:
                 engine = 'pyarrow'
-            buffer = io.BytesIO()
+            buffer = BytesIO()
             df.to_parquet(buffer, engine=engine, **kwargs)
             body = buffer.getvalue()
         elif format == 'pickle':
@@ -114,7 +121,8 @@ def put_df(s3: boto3.resources.base.ServiceResource,
         else:
             raise TypeError('File type not supported')
         s3.put_object(Body=body, Bucket=bucket, Key=key)
-        logger.info(f'File uploaded using format {format}, compression {compression}')
+        logger.info(f'File uploaded using format {format}, \
+                    compression {compression}')
     else:
         raise TypeError('Provided content must type pandas.DataFrame')
 
@@ -136,7 +144,8 @@ def get_df(s3: boto3.resources.base.ServiceResource,
     :rtype: pandas.DataFrame
     """
 
-    assert format in ['csv', 'parquet', 'pickle', 'xlsx'], 'provider format value not accepted'
+    assert format in ['csv', 'parquet', 'pickle', 'xlsx'], \
+        'provider format value not accepted'
 
     object_ = s3.get_object(Bucket=bucket, Key=key)
 
@@ -145,9 +154,9 @@ def get_df(s3: boto3.resources.base.ServiceResource,
     elif format == 'csv':
         return pandas.read_csv(object_['Body'], **kwargs)
     elif format == 'parquet':
-        return pandas.read_parquet(io.BytesIO(object_['Body'].read()), **kwargs)
+        return pandas.read_parquet(BytesIO(object_['Body'].read()), **kwargs)
     elif format == 'xlsx':
-        return pandas.read_excel(io.BytesIO(object_['Body'].read()), **kwargs)
+        return pandas.read_excel(BytesIO(object_['Body'].read()), **kwargs)
 
 
 def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
@@ -167,15 +176,15 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
     l_df = list()
     for f in get_keys(s3, bucket, prefix=prefix, suffix=suffix):
         if f != prefix:
+            if 'format' not in kwargs.keys():
+                kwargs['format'] = f.split('.')[-1]
             try:
-                obj_ = get_df(s3, bucket, f, f.split('.')[-1], **kwargs)
+                obj_ = get_df(s3, bucket, f, **kwargs)
                 l_df.append(obj_)
             except AssertionError as err:
-                logger.error(f'File key {f} uses a forbidden extension {f.split(".")[-1]}')
-                raise ValueError(f'File {f} cannot be interpreted as a pandas.DataFrame') from err
-    return pandas.concat(l_df, axis=0, ignore_index=True).reset_index(drop=True)
-
-
-def get_df_multipart():
-    # TODO
-    pass
+                logger.error(f'File key {f} uses a forbidden \
+                extension {f.split(".")[-1]}')
+                raise ValueError(f'File {f} cannot be \
+                interpreted as a pandas.DataFrame') from err
+    return pandas.concat(l_df, axis=0, ignore_index=True) \
+                 .reset_index(drop=True)
