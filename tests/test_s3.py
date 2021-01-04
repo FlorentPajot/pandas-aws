@@ -212,14 +212,22 @@ class GetDFFromKeysTests(BaseAWSTest):
 
     def setUp(self):
         super(GetDFFromKeysTests, self).setUp()
-        o = pandas.DataFrame.from_dict(self.data)
+        df = pandas.DataFrame.from_dict(self.data)
         # upload different files to our test bucket
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key1.csv', format='csv')
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key2.csv', format='csv')
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key1.xlsx', format='xlsx')
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key2.xlsx', format='xlsx')
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key1.parquet', format='parquet')
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key2.parquet', format='parquet')
+        for format in ["csv", "xlsx", "parquet"]:
+            for file in [f"/key1.{format}", f"/key2.{format}"]:
+                if format == "csv":
+                    buffer = io.StringIO()
+                    df.to_csv(buffer, index_label=False)
+                elif format == "xlsx":
+                    buffer = io.BytesIO()
+                    writer = pandas.ExcelWriter(buffer, engine='xlsxwriter')
+                    df.to_excel(writer, sheet_name='Sheet1', index=False)
+                    writer.save()
+                elif format == "parquet":
+                    buffer = io.BytesIO()
+                    df.to_parquet(buffer, engine='pyarrow')
+                self.client.put_object(Bucket=MY_BUCKET, Key=MY_PREFIX + file, Body=buffer.getvalue())
 
     def tearDown(self):
         super(GetDFFromKeysTests, self).tearDown()
@@ -230,17 +238,36 @@ class GetDFFromKeysTests(BaseAWSTest):
             self.assertEqual(len(self.data['col_1']) * n_files, df.shape[0])
             self.assertEqual(sum(self.data['col_1']) * n_files, df.loc[:, 'col_1'].sum())
 
+        # check 'suffix' format option
         for suffix in ['.csv', '.xlsx', '.parquet']:
             # 2 files per extension
-            df = get_df_from_keys(self.client, MY_BUCKET, '', suffix=suffix)
+            df = get_df_from_keys(self.client,
+                                  MY_BUCKET,
+                                  MY_PREFIX,
+                                  suffix=suffix,
+                                  format='suffix')
             check(df, n_files=2)
 
-        # all files (6 files), mixed extensions
-        df = get_df_from_keys(self.client, MY_BUCKET, '', suffix='')
+        # check 'mixed' format option
+        df = get_df_from_keys(self.client, MY_BUCKET, MY_PREFIX, format='mixed')
         check(df, n_files=6)
 
-    def test_failure_invalid_extension_in_files(self):
-        o = pandas.DataFrame.from_dict(self.data)
-        put_df(self.client, o, MY_BUCKET, MY_PREFIX + '/key1.invalid', format='csv')
-        with self.assertRaises(ValueError):
-            _ = get_df_from_keys(self.client, MY_BUCKET, MY_PREFIX, suffix='')
+        # check valid format option like 'csv'
+        df = get_df_from_keys(self.client,
+                              MY_BUCKET,
+                              MY_PREFIX,
+                              suffix='.csv',
+                              format='csv')
+        check(df, n_files=2)
+
+        # check invalid format option
+        with self.assertRaises(AssertionError):
+            _ = get_df_from_keys(self.client,
+                                  MY_BUCKET,
+                                  MY_PREFIX,
+                                  suffix='.csv',
+                                  format='invalid_value')
+
+        # check no data
+        df = get_df_from_keys(self.client, MY_BUCKET, MY_PREFIX, suffix='egs')
+        self.assertEqual(df, None)
