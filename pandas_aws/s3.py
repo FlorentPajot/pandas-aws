@@ -55,8 +55,6 @@ def put_df(s3: boto3.resources.base.ServiceResource,
            df: pandas.DataFrame,
            bucket: str,
            key: str,
-           format: str = 'csv',
-           compression: str = None,
            **kwargs
            ):
     """
@@ -72,9 +70,18 @@ def put_df(s3: boto3.resources.base.ServiceResource,
     # Uploads the given file using a managed uploader,
     # which will split up large files automatically
     # and upload parts in parallel
+    if 'format' in kwargs.keys():
+        format = kwargs['format']
+    else:
+        format = 'csv'
+    if 'compression' in kwargs.keys():
+        compression = kwargs['compression']
+    else:
+        compression = None
 
     assert format in ['csv', 'parquet', 'pickle', 'xlsx'], \
         'provider format value not accepted'
+
     if format == 'csv':
         assert compression in [None, 'gzip'], \
             'provider compression value not accepted'
@@ -121,8 +128,7 @@ def put_df(s3: boto3.resources.base.ServiceResource,
         else:
             raise TypeError('File type not supported')
         s3.put_object(Body=body, Bucket=bucket, Key=key)
-        logger.info(f'File uploaded using format {format}, \
-                    compression {compression}')
+        logger.info(f'File uploaded using format {format}')
     else:
         raise TypeError('Provided content must type pandas.DataFrame')
 
@@ -163,7 +169,6 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
                      bucket: str,
                      prefix: str,
                      suffix: str = '',
-                     format: str = 'suffix',
                      **kwargs):
     """
     Build a DataFrame from multiple files in the same folder in S3
@@ -175,6 +180,10 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
     :rtype: pandas.DataFrame
     """
 
+    if 'format' in kwargs.keys():
+        format = kwargs['format']
+    else:
+        format = 'suffix'
     assert format in ["csv", "parquet", "wlrd", "suffix", "mixed"], f"{format} format not supported"
     if format == "mixed":
         logger.warning('Mixed format used, might discard files')
