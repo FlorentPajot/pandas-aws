@@ -12,6 +12,7 @@ before_install:
 - python --version
 - curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py
   | python
+- sudo apt-get install -y libpq-dev
 - source $HOME/.poetry/env
 
 install:
