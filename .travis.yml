@@ -35,11 +35,13 @@ deploy:
   script: poetry publish -r testpypi
   on:
     branch: develop
+    tags: true
 - provider: script
   skip_cleanup: true
   script: poetry publish
   on:
     branch: master
+    tags: true
 
 env:
   global:
