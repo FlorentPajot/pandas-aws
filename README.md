@@ -107,3 +107,7 @@ Then install dependencies with poetry after your `git clone` from the project re
 ## Guidelines
 
 Todo
+
+## Requires
+The project needs the following dependencies:
+- libpq-dev (psycopg2 dependency)
