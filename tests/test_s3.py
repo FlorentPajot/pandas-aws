@@ -10,6 +10,7 @@ import boto3
 from botocore.exceptions import ClientError
 from moto import mock_s3
 import pandas
+import numpy
 
 from pandas_aws.s3 import get_keys, put_df, get_df, get_df_from_keys
 
@@ -116,7 +117,7 @@ class PutDFTests(BaseAWSTest):
     def test_put_df_success_dataframe_to_csv(self):
         o = pandas.DataFrame.from_dict(self.data)
         key = MY_PREFIX + '/key1.csv'
-        put_df(self.client, o, MY_BUCKET, key, format='csv')
+        put_df(self.client, o, MY_BUCKET, key, format='csv', index=False)
         body = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=key)['Body'])
         self.assertSequenceEqual(list(o.columns), list(body.columns))
         self.assertSequenceEqual(o.iloc[0].tolist(), body.iloc[0].tolist())
@@ -151,6 +152,35 @@ class PutDFTests(BaseAWSTest):
         self.assertSequenceEqual(list(o.columns), list(body.columns))
         self.assertSequenceEqual(o.iloc[0].tolist(), body.iloc[0].tolist())
 
+    def test_put_df_success_dataframe_to_csv_with_compression(self):
+        o = pandas.DataFrame.from_dict(self.data)
+        key = MY_PREFIX + '/key1.csv.gz'
+        put_df(self.client, o, MY_BUCKET, key, compression='gzip')
+        body = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=key)['Body'], compression='gzip')
+        self.assertSequenceEqual(list(o.columns), list(body.columns))
+        self.assertSequenceEqual(o.iloc[0].tolist(), body.iloc[0].tolist())
+
+    def test_put_df_success_dataframe_to_multiple_csv(self):
+        o = pandas.DataFrame.from_dict(self.data)
+        key = MY_PREFIX + '/key1.csv'
+        obj_1_key = MY_PREFIX + '/key1/key1.1.csv'
+        obj_2_key = MY_PREFIX + '/key1/key1.2.csv'
+        put_df(self.client, o, MY_BUCKET, key, format='csv', sep=';', parts=2)
+        body_1 = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=obj_1_key)['Body'], sep=';')
+        body_2 = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=obj_2_key)['Body'], sep=';')
+        self.assertTrue(o.equals(pandas.concat([body_1, body_2]).reset_index(drop=True)))
+
+    def test_put_df_success_dataframe_with_sort_keys_to_multiple_csv(self):
+        o = pandas.DataFrame.from_dict(self.data)
+        key = MY_PREFIX + '/key1.csv'
+        obj_1_key = MY_PREFIX + '/key1/key1.1.csv'
+        obj_2_key = MY_PREFIX + '/key1/key1.2.csv'
+        sort_keys = ['col_1','col_2']
+        put_df(self.client, o, MY_BUCKET, key, format='csv', sep=';', parts=2, sort_keys=sort_keys)
+        body_1 = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=obj_1_key)['Body'], sep=';')
+        body_2 = pandas.read_csv(self.client.get_object(Bucket=MY_BUCKET, Key=obj_2_key)['Body'], sep=';')
+        sorted_o = o.sort_values(sort_keys).reset_index(drop=True)
+        self.assertTrue(sorted_o.equals(pandas.concat([body_1, body_2]).reset_index(drop=True)))
 
 class GetDFTests(BaseAWSTest):
     """Test for s3.get_df"""
