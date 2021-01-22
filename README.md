@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.com/FlorentPajot/pandas-aws.svg?branch=master)](https://travis-ci.com/FlorentPajot/pandas-aws) [![codecov](https://codecov.io/gh/FlorentPajot/pandas-aws/branch/master/graph/badge.svg)](https://codecov.io/gh/FlorentPajot/pandas-aws)
 
-# Pandas AWS - AWS use made easy for data scientists
+# Pandas AWS - AWS made easy for data scientists
 
 Pandas AWS makes it super easy to use a pandas.DataFrame along with AWS services.
 
@@ -33,6 +33,7 @@ put_df(s3, my_dataframe, MY_BUCKET, 'target_file_path', format='xlsx')
 ```
 
 ## Working with Redshift
+
 First create a RedshiftClient object (boto3 doesn't provide a redshift client for executing requests)
 ```
 from sqlalchemy import create_engine
