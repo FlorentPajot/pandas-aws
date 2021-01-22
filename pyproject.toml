@@ -30,6 +30,7 @@ fastparquet = "^0.3.3"
 pyarrow = "^0.16.0"
 xlsxwriter = "^1.2.8"
 xlrd = "^1.2.0"
+psycopg2 = "^2.8.6"
 
 [tool.poetry.dev-dependencies]
 mock = "=4.0.2"
