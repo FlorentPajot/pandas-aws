@@ -72,10 +72,12 @@ def put_df(s3: boto3.resources.base.ServiceResource,
     # and upload parts in parallel
     if 'format' in kwargs.keys():
         format = kwargs['format']
+        del kwargs['format']
     else:
         format = 'csv'
     if 'compression' in kwargs.keys():
         compression = kwargs['compression']
+        del kwargs['compression']
     else:
         compression = None
 
@@ -182,6 +184,7 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
 
     if 'format' in kwargs.keys():
         format = kwargs['format']
+        del kwargs['format']
     else:
         format = 'suffix'
     assert format in ["csv", "parquet", "wlrd", "suffix", "mixed"], f"{format} format not supported"

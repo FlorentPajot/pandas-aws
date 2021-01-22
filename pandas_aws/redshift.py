@@ -4,6 +4,7 @@ import os
 import traceback
 import sys
 
+import boto3
 import botocore
 import psycopg2
 from pandas import DataFrame
