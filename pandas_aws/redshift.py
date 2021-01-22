@@ -1,4 +1,4 @@
-dfimport datetime
+import datetime
 import logging
 import os
 import traceback
@@ -80,7 +80,7 @@ class RedshiftClient(object):
 
         if isinstance(words, list):
                 self._reserved_words = self._reserved_words + \
-                [str(w) for w in set(words) for w not in self._reserved_words]
+                [str(w) for w in set(words) if w not in self._reserved_words]
         else:
             raise TypeError(f'Invalid type passed to add_reserved_words(): {type(words)}, expected str of list ')
 
@@ -335,7 +335,7 @@ class RedshiftClient(object):
     def _create_temp_redshift_table_from_target(self, target_redshift_table_name):
         """Create a temporary table based on a target table exisitng in redshift"""
 
-        self.cursor.execute(f'DROP TABLE IF EXISTS stage_{target_redshift_table_name}'
+        self.cursor.execute(f'DROP TABLE IF EXISTS stage_{target_redshift_table_name}')
         create_table_query = f'CREATE TEMP TABLE stage_{target_redshift_table_name} (LIKE {target_redshift_table_name})'
 
         logger.info('CREATING A TABLE IN REDSHIFT')

@@ -4,16 +4,69 @@
 
 Pandas AWS makes it super easy to use a pandas.DataFrame along with AWS services.
 
+## Working with S3
+
+First create an S3 client to be used later and define a bucket
 ```
-# Example : get a DataFrame from multiple CSV files in S3
-
-from pandas_aws import get_client, get_df_from_keys
-
-MY_BUCKET= 'pandas-aws-bucket'
+from pandas_aws import get_client
 
 s3 = get_client('s3')
+MY_BUCKET= 'pandas-aws-bucket'
+```
+Example 1: get a DataFrame from a parquet file stored in S3
+```
+from pandas_aws.s3 import get_df
 
-df = get_df_from_keys(s3, MY_BUCKET, prefix='my-folder', suffix='.csv')
+df_from_parquet_file = get_df(s3, MY_BUCKET, 'my_parquet_file_path', format='parquet')
+```
+Example 2: get a DataFrame from multiple CSV files stored in S3
+```
+from pandas_aws.s3 import get_df_from_keys
+
+df_from_list = get_df_from_keys(s3, MY_BUCKET, prefix='my-folder', suffix='.csv')
+```
+Example 3: put a DataFrame into S3 using an xlsx (Excel) file format
+```
+from pandas_aws.s3 import put_df
+
+put_df(s3, my_dataframe, MY_BUCKET, 'target_file_path', format='xlsx')
+```
+
+## Working with Redshift
+First create a RedshiftClient object (boto3 doesn't provide a redshift client for executing requests)
+```
+from sqlalchemy import create_engine
+from pandas_aws importt get_client
+from pandas_aws.redshift import RedshiftClient
+
+s3 = get_client('s3')
+postgres_engine = create_engine('MY_REDSHIFT_ENPOINT')
+
+redshift = RedshiftClient(postgres_engine, 'my_redshift_schema', s3_client=s3)
+```
+Example 1: load a DataFrame content into a Redshift table
+```
+# In case the target table doesn't exists, the table is created
+# based on the DataFrame schema and content
+redshift.upload_to_redshift(my_dataframe,
+                            'target_table_name',
+                            MY_BUKET,
+                            'temp_file_path',
+                            aws_role='role-for-redshift-s3-access-arn'
+                            )
+
+```
+Example 2: upsert (update existing rows, insert new ones) data from a DataFrame into a Redshift table
+```
+redshif.upsert_rows(
+                    my_dataframe,
+                    'target_table_name',
+                    MY_BUKET,
+                    'temp_file_path',
+                    comparison_key = ['table_pk']
+                    comparison_key: list,
+                    aws_role='role-for-redshift-s3-access-arn'
+                    )
 ```
 
 # Installing pandas-aws
