@@ -175,7 +175,7 @@ def get_df_from_keys(s3: boto3.resources.base.ServiceResource,
     :rtype: pandas.DataFrame
     """
 
-    assert format in ["csv", "parquet", "wlrd", "suffix", "mixed"], f"{format} format not supported"
+    assert format in ["csv", "parquet", "xlsx", "suffix", "mixed"], f"{format} format not supported"
     if format == "mixed":
         logger.warning('Mixed format used, might discard files')
 
