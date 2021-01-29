@@ -94,12 +94,26 @@ Pandas AWS uses `poetry` to manage dependencies. Thus, `poetry` is required:
 
 `curl -SSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python`
 
-Create a separate Python environment, for example using `pyenv`:
+Create a separate Python environment, for example using `pyenv` and Python 3.7.7:
 
 ```
-pyenv virtualenv pandas-aws
+pyenv install 3.7.7
+pyenv virtualenv 3.7.7 pandas-aws
 pyenv activate pandas-aws
 ```
+
+Check your environment using:
+```
+which python
+// should show something like .pyenv/shims/python
+python -V
+// should show python 3.7.7 (or any other version you selected)
+pip list
+// should show barely nothing except pip and setuptools
+```
+
+Check `Pyenv` documentation if something goes wrong.
+
 Then install dependencies with poetry after your `git clone` from the project repository:
 
 `poetry install`
