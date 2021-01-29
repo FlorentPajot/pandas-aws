@@ -14,4 +14,4 @@ def get_client(service_name: str, profile_name: str = 'default', **kwargs):
         return boto3.client(service_name=service_name, **kwargs)
 
 
-__all__ = ['s3']
+__all__ = ['s3', 'redshift']
