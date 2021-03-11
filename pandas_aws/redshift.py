@@ -7,7 +7,7 @@ import sys
 import boto3
 import botocore
 import psycopg2
-from pandas import DataFrame
+import pandas
 
 from . import get_client
 from .s3 import put_df
@@ -85,7 +85,7 @@ class RedshiftClient(object):
         else:
             raise TypeError(f'Invalid type passed to add_reserved_words(): {type(words)}, expected str of list ')
 
-    def _validate_column_names(self, df: DataFrame) -> DataFrame:
+    def _validate_column_names(self, df: pandas.DataFrame) -> pandas.DataFrame:
         """Validate the column names to ensure no reserved words are used."""
 
         reserved_words = [r.strip().lower() for r in self._reserved_words]
@@ -113,7 +113,7 @@ class RedshiftClient(object):
         else:
             return 'VARCHAR(256)'
 
-    def _get_column_data_types(self, df: DataFrame, index: bool = False) -> list:
+    def _get_column_data_types(self, df: pandas.DataFrame, index: bool = False) -> list:
         """Retrieves redshift compatible data types from a DataFrame"""
         column_data_types = [self._to_redshift_types(dtype_.name) for dtype_ in df.dtypes.values]
         if index:
@@ -189,7 +189,7 @@ class RedshiftClient(object):
             raise
 
     def _create_redshift_table(self,
-                               df: DataFrame,
+                               df: pandas.DataFrame,
                                redshift_table_name: str,
                                column_data_types: list = None,
                                column_constraints: list = None,
@@ -247,7 +247,7 @@ class RedshiftClient(object):
         self.connector.commit()
 
     def _pandas_to_redshift(self,
-                            df: DataFrame,
+                            df: pandas.DataFrame,
                             redshift_table_name: str,
                             s3_bucket_name: str,
                             s3_key_prefix: str,
@@ -307,7 +307,7 @@ class RedshiftClient(object):
                              aws_token)
 
     def upload_to_redshift(self,
-                           df: DataFrame,
+                           df: pandas.DataFrame,
                            redshift_table_name: str,
                            s3_bucket_name: str,
                            s3_key_prefix: str,
@@ -385,13 +385,13 @@ class RedshiftClient(object):
 
     def upsert_rows(
                     self,
-                    update_df: DataFrame,
+                    update_df: pandas.DataFrame,
                     target_table_name: str,
                     s3_bucket_name: str,
                     s3_key_prefix: str,
                     comparison_key: list,
                     aws_role: str,
-                    **kwargs):
+                    **kwargs) -> None:
         """Performs an upsert lines into a target Redshift table based on a DataFrame content"""
 
         d = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
@@ -414,3 +414,35 @@ class RedshiftClient(object):
         self._insert_target_redshift_table_line(f'stage_{target_table_name}',
                                                 target_table_name
                                                 )
+    def get_df(
+            self,
+            query: str,
+            columns_: list() = None,
+            fetch_size: int = 1e6) -> pandas.DataFrame:
+
+        logger.debug(f'Execution {query} on Redshift')
+        try:
+            self.cursor.execute(query)
+            self.connector.commit()
+        except Exception as e:
+            logger.error(e)
+            traceback.print_exc(file=sys.stdout)
+            self.connector.rollback()
+            raise
+        df_l = list()
+        columns = [c[0] for c in self.cursor.description]
+        while True:
+            r = self.cursor.fetchmany(fetch_size)
+            if len(r) == 0:
+                break
+            else:
+                df_l.append(pandas.DataFrame(r))
+        try:
+            df = pandas.concat(df_l, axis=0)
+            df.columns = columns
+            if columns_:
+                df = df.rename(index=str, columns={k: v for k, v in columns_.items() if v})
+            return df
+        except ValueError as e:
+            logger.warning('Retrieved dataframe is void')
+            return pandas.DataFrame()
