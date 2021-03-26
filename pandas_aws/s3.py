@@ -4,10 +4,12 @@ __author__ = 'fpajot'
 import gzip
 from io import StringIO, BytesIO
 import logging
+from os import path
 import pickle
 
 import boto3
 import pandas
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +53,50 @@ def get_keys(s3: boto3.resources.base.ServiceResource,
             kwargs.update({'ContinuationToken': resp['NextContinuationToken']})
 
 
+def _get_splited_df_streams(df, parts, func, buffer_class, **kwargs):
+    """
+    Splits pandas.Dataframe into parts and returns list of correspond streams objects
+    :param df: pandas Dataframe which to be splitted
+    :param parts: number of output files
+    :param func: function to dump Dataframe
+    :param buffer_class: class of stream I/O
+    :param sort_keys: list of column names (sort keys)
+    :param '**kwargs': used for passing arguments to dumping Dataframe functions
+    :return: list of streams, contain parts of Dataframe
+    :rtype: list
+    """
+    if 'sort_keys' in kwargs.keys():
+        sort_keys = kwargs['sort_keys']
+        del kwargs['sort_keys']
+    else:
+        sort_keys = None
+
+    if sort_keys is not None:
+        assert len(sort_keys) > 0, 'Sort keys not accepted, it must be not empty list of strings'
+
+    func_kwargs = {}
+    for key in kwargs.keys():
+        if key in list(func.__code__.co_varnames):
+            func_kwargs[key] = kwargs[key]
+
+    buffers = []
+
+    if sort_keys is None:
+        parts_df = np.array_split(df, parts)
+    else:
+        parts_df = np.array_split(df.sort_values(sort_keys), parts)
+    for p in parts_df:
+        b = buffer_class()
+        if func == pandas.DataFrame.to_excel:
+            w = pandas.ExcelWriter(b, engine='xlsxwriter')
+            func(p, w, **func_kwargs)
+            w.save()
+        else:
+            func(p, b, **func_kwargs)
+        buffers.append(b)
+    return buffers
+
+
 def put_df(s3: boto3.resources.base.ServiceResource,
            df: pandas.DataFrame,
            bucket: str,
@@ -65,21 +111,35 @@ def put_df(s3: boto3.resources.base.ServiceResource,
     :param key: aws key of the target file
     :param format: file format to use, i.e csv
     :param compression: file compression applied
+    :param parts: number of output files
+    :param sort_keys: list of column names (sort keys)
     :param '**kwargs': used for passing arguments to pandas writing methods
     """
     # Uploads the given file using a managed uploader,
     # which will split up large files automatically
     # and upload parts in parallel
+    if not isinstance(df, pandas.DataFrame):
+        raise TypeError('Provided content must type pandas.DataFrame')
+
     if 'format' in kwargs.keys():
         format = kwargs['format']
         del kwargs['format']
     else:
         format = 'csv'
+
     if 'compression' in kwargs.keys():
         compression = kwargs['compression']
         del kwargs['compression']
     else:
         compression = None
+
+    if 'parts' in kwargs.keys():
+        parts = kwargs['parts']
+        del kwargs['parts']
+    else:
+        parts = 1
+
+    assert parts > 0, 'Number of parts not accepted, it must be > 0'
 
     assert format in ['csv', 'parquet', 'pickle', 'xlsx'], \
         'provider format value not accepted'
@@ -88,51 +148,64 @@ def put_df(s3: boto3.resources.base.ServiceResource,
         assert compression in [None, 'gzip'], \
             'provider compression value not accepted'
 
-    if isinstance(df, pandas.DataFrame):
-        if format == 'csv':
-            buffer = StringIO()
-            df.to_csv(buffer, index_label=False, index=False, **kwargs)
-            if compression == 'gzip':
-                logger.info('Using csv compression with gzip')
-                gz_buffer = BytesIO()
+    buffers = []
+    content_type = 'text'
+    content_encoding = 'default'
+
+    if format == 'csv':
+        kwargs['index_label'] = False
+        kwargs['index'] = False
+        buffers = _get_splited_df_streams(df, parts, pandas.DataFrame.to_csv, StringIO, **kwargs)
+        if compression == 'gzip':
+            logger.info('Using csv compression with gzip')
+            content_type = 'text/csv'  # the original type
+            content_encoding = 'gzip'  # MUST have or browsers will error
+            tmp_buffer = []
+            for buffer in buffers:
                 buffer.seek(0)
+                gz_buffer = BytesIO()
                 # compress string stream using gzip
                 with gzip.GzipFile(mode='w', fileobj=gz_buffer) as gz_file:
                     gz_file.write(bytes(buffer.getvalue(), 'utf-8'))
-                s3.put_object(
-                    Bucket=bucket,
-                    Key=key,
-                    ContentType='text/csv',  # the original type
-                    ContentEncoding='gzip',  # MUST have or browsers will error
-                    Body=gz_buffer.getvalue()
-                )
-                logger.info(f'File uploaded using format {format}, \
-                            compression {compression}')
-                return
-            else:
-                body = buffer.getvalue()
-        elif format == 'xlsx':
-            buffer = BytesIO()
-            writer = pandas.ExcelWriter(buffer, engine='xlsxwriter')
-            df.to_excel(writer, sheet_name='Sheet1', index=False, **kwargs)
-            writer.save()
-            body = buffer.getvalue()
-        elif format == 'parquet':
-            if 'engine' in kwargs:
-                engine = kwargs['engine']
-            else:
-                engine = 'pyarrow'
-            buffer = BytesIO()
-            df.to_parquet(buffer, engine=engine, **kwargs)
-            body = buffer.getvalue()
-        elif format == 'pickle':
-            body = pickle.dumps(df)
+                tmp_buffer.append(gz_buffer)
+            buffers = tmp_buffer
+    elif format == 'xlsx':
+        kwargs['sheet_name'] = 'Sheet1'
+        kwargs['index'] = False
+        buffers = _get_splited_df_streams(df, parts, pandas.DataFrame.to_excel, BytesIO, **kwargs)
+    elif format == 'parquet':
+        if 'engine' in kwargs:
+            engine = kwargs['engine']
         else:
-            raise TypeError('File type not supported')
-        s3.put_object(Body=body, Bucket=bucket, Key=key)
+            engine = 'pyarrow'
+        buffers = _get_splited_df_streams(df, parts, pandas.DataFrame.to_parquet, BytesIO, engine=engine, **kwargs)
+    elif format == 'pickle':
+        buffers = _get_splited_df_streams(df, parts, pickle.dump, BytesIO)
+        content_encoding = 'application/octet-stream'
+    else:
+        raise TypeError('File type not supported')
+
+    for bid, buffer in enumerate(buffers, start=1):
+        if parts == 1:
+            key_str = key
+        else:
+            dirname, basename = path.split(key)
+            basename_parts = basename.split(sep='.')
+            obj_name = '.'.join([basename_parts[0], str(bid)] + basename_parts[1:])
+            key_str = '/'.join([dirname, basename_parts[0], obj_name])
+        s3.put_object(
+                    Bucket=bucket,
+                    Key=key_str,
+                    ContentType=content_type,  # the original type
+                    ContentEncoding=content_encoding,  # MUST have or browsers will error
+                    Body=buffer.getvalue()
+                )
+
+    if compression is None:
         logger.info(f'File uploaded using format {format}')
     else:
-        raise TypeError('Provided content must type pandas.DataFrame')
+        logger.info(f'File uploaded using format {format}, '
+                    f'compression {compression}')
 
 
 def get_df(s3: boto3.resources.base.ServiceResource,
